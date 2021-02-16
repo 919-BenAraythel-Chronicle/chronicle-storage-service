@@ -1,5 +1,18 @@
 package com.revature.chronicle.services;
 
+import java.io.File;
+import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.annotation.PostConstruct;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.stereotype.Service;
+
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
@@ -7,22 +20,20 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
+import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
+import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.UploadPartRequest;
+import com.amazonaws.services.s3.model.UploadPartResult;
+import com.amazonaws.services.s3.transfer.Download;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
-import com.amazonaws.services.s3.transfer.model.UploadResult;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.stereotype.Service;
-
-import javax.annotation.PostConstruct;
-import java.io.File;
-import java.net.URL;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 
 @Service
 @PropertySource("classpath:aws.properties")
@@ -74,7 +85,7 @@ public class S3FileService {
             PutObjectRequest req = new PutObjectRequest(this.awsBucket, file.getName(), path.toFile()).withCannedAcl(CannedAccessControlList.PublicRead);
 
             Upload upload = tm.upload(req);
-            UploadResult result = upload.waitForUploadResult();
+            upload.waitForUploadResult();
 
         } catch (AmazonClientException e) {
             e.printStackTrace();
@@ -85,6 +96,33 @@ public class S3FileService {
         URL s3Url = s3Client.getUrl(this.awsBucket, file.getName());
         System.out.println(s3Url);
         return s3Url.toString();
+    }
+    
+    public String downloadFile(String key) {
+    	TransferManager tm = TransferManagerBuilder
+    			.standard()
+    			.withS3Client(this.s3Client)
+    			.build();
+    	
+    	//Path stuff
+    	GetObjectRequest request = new GetObjectRequest(this.awsBucket, key);
+    	System.out.println(request.getS3ObjectId());
+    	
+    	Download download = tm.download(request, new File("./downloads/" + key));
+    	
+    	try {
+			download.waitForCompletion();
+		} catch (AmazonClientException | InterruptedException e) {
+			e.printStackTrace();
+		}
+    	
+    	String ne = download.toString();
+    	System.out.println(ne);
+    	return ne;
+    	
+//    	S3Object fullObject = s3Client.getObject(new GetObjectRequest(this.awsBucket, key));
+//    	
+//    	return fullObject.toString();
     }
 
     public String getObjectUrl(String name) {
